@@ -12,6 +12,20 @@ import akka.actor.*;
  */
 public class EventStreamDemo {
 
+
+    // 订阅自定义消息
+    interface SuperMessage {
+
+    }
+
+    static class MessageA implements SuperMessage {
+
+    }
+
+    static class MessageB implements SuperMessage {
+
+    }
+
     // 消费死信消息
     static class SimpleActor extends AbstractActor {
 
@@ -32,10 +46,14 @@ public class EventStreamDemo {
     public static void main(String[] args) {
         ActorSystem system = ActorSystem.create("sys");
         ActorRef actorRef = system.actorOf(Props.create(SimpleActor.class));
-        system.eventStream().subscribe(actorRef, DeadLetter.class);
+//        system.eventStream().subscribe(actorRef, DeadLetter.class);
+//
+//        ActorSelection delayActor = system.actorSelection("test");
+//        delayActor.tell("test", ActorRef.noSender());
 
-        ActorSelection delayActor = system.actorSelection("test");
-        delayActor.tell("test", ActorRef.noSender());
+        system.eventStream().subscribe(actorRef, SuperMessage.class);
+        system.eventStream().publish(new MessageA());
+        system.eventStream().publish(new MessageB());
 
     }
 }
