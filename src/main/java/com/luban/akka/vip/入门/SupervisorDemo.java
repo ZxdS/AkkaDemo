@@ -23,17 +23,17 @@ public class SupervisorDemo {
         // maxNrOfRetries、withinTimeRange表示：在指定时间内的最大重启次数，超过这个次数就 stop 掉，在我们的代码中设定了：在 1 分钟内重启超过 3 次则停止该 Actor
         private SupervisorStrategy strategy = new OneForOneStrategy(3, Duration.ofMinutes(1), t -> {
             if (t instanceof IOException) {
-                System.out.println("==========IOException=========");
+                System.out.println("========自动恢复=======");
                 return SupervisorStrategy.resume(); // 恢复
             } else if (t instanceof IndexOutOfBoundsException) {
-                System.out.println("=========IndexOutOfBoundsException==========");
+                System.out.println("=========重启==========");
                 return SupervisorStrategy.restart(); // 重启
             } else if (t instanceof SQLException) {
-                System.out.println("==========SQLException=========");
+                System.out.println("==========停止=========");
                 return SupervisorStrategy.stop();  // 停止
             } else {
-                System.out.println("==========escalate=========");
-                return SupervisorStrategy.escalate(); // 上溯
+                System.out.println("==========上报=========");
+                return SupervisorStrategy.escalate(); // 上报
             }
         });
 
@@ -64,39 +64,42 @@ public class SupervisorDemo {
 
     static class WorkerActor extends AbstractActor {
         //状态数据
-        private int stateCount = 1;
+        private int stateCount = 0;
 
         public void preStart() throws Exception {
-            System.out.println("worker actor preStart");
+            System.out.println("启动前preStart");
             super.preStart();
         }
 
         @Override
         public void postStop() throws Exception {
-            System.out.println("worker actor postStop");
+            System.out.println("停止后postStop");
             super.postStop();
         }
 
         @Override
         public void preRestart(Throwable reason, Option<Object> message)
                 throws Exception {
-            System.out.println("worker actor preRestart");
+            System.out.println("重启前preRestart");
             super.preRestart(reason, message);
         }
 
         @Override
         public void postRestart(Throwable reason) throws Exception {
-            System.out.println("worker actor postRestart");
             super.postRestart(reason);
+            System.out.println("重启后postRestart");
         }
 
         @Override
         public Receive createReceive() {
             return receiveBuilder().matchAny(msg -> {
                 //模拟计算任务
-                this.stateCount++;
-                System.out.println(stateCount);
-                if (msg instanceof Exception) {
+                if (msg.equals("add")) {
+                    stateCount++;
+                    System.out.println(stateCount);
+                } else if (msg.equals("get")) {
+                    System.out.println(stateCount);
+                } else if (msg instanceof Exception) {
                     throw (Exception) msg;
                 } else {
                     unhandled(msg);
@@ -110,9 +113,14 @@ public class SupervisorDemo {
         ActorRef supervisorActor = system.actorOf(Props.create(SupervisorActor.class), "supervisorActor");
         ActorSelection workerActor = system.actorSelection("akka://sys/user/supervisorActor/workerActor");
 
-        workerActor.tell(new IOException(), ActorRef.noSender());
-//        workerActor.tell(new SQLException("SQL异常"), ActorRef.noSender());
+        System.out.println("发送消息");
+
+        workerActor.tell("add", ActorRef.noSender());
 //        workerActor.tell(new IndexOutOfBoundsException(), ActorRef.noSender());
-        workerActor.tell("123", ActorRef.noSender());
+        workerActor.tell(new SQLException("SQL异常"), ActorRef.noSender());
+//        workerActor.tell(new IOException(), ActorRef.noSender());
+
+
+        workerActor.tell("get", ActorRef.noSender());
     }
 }
