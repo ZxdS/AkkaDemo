@@ -1,7 +1,15 @@
 package com.luban.akka.vip.入门;
 
 import akka.actor.*;
+import akka.dispatch.OnSuccess;
 import akka.japi.pf.FI;
+import akka.util.Timeout;
+import scala.Function1;
+import scala.concurrent.Future;
+import scala.concurrent.duration.Duration;
+import scala.util.Success;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * *************书山有路勤为径***************
@@ -22,10 +30,18 @@ public class SelectionDemo {
 
     public static void main(String[] args) {
         ActorSystem system = ActorSystem.create("sys");
-        ActorRef targetActor1 = system.actorOf(Props.create(TargetActor.class), "targetActor1");
         ActorRef targetActor2 = system.actorOf(Props.create(TargetActor.class), "targetActor2");
+        ActorRef targetActor1 = system.actorOf(Props.create(TargetActor.class), "targetActor1");
 
         ActorSelection actorSelection = system.actorSelection("user/targetActor*");
-        actorSelection.tell("hello", ActorRef.noSender());
+//        actorSelection.tell("hello", ActorRef.noSender());
+
+        Future<ActorRef> future = actorSelection.resolveOne(new Timeout(Duration.create(3, TimeUnit.SECONDS)));
+        future.onSuccess(new OnSuccess<ActorRef>() {
+            @Override
+            public void onSuccess(ActorRef result) throws Throwable {
+                System.out.println(result);
+            }
+        }, system.getDispatcher());
     }
 }
