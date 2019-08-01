@@ -1,17 +1,20 @@
 package com.luban.akka.vip.高级.持久化;
 
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import akka.actor.Props;
+import akka.actor.*;
 import akka.japi.Procedure;
+import akka.pattern.Patterns;
 import akka.persistence.AbstractPersistentActor;
-import akka.persistence.RecoveryCompleted;
-import akka.persistence.SaveSnapshotSuccess;
 import akka.persistence.SnapshotOffer;
-import scala.Serializable;
+import akka.util.Timeout;
+import com.typesafe.config.ConfigFactory;
+import scala.concurrent.Await;
+import scala.concurrent.Future;
+import scala.concurrent.duration.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * *************书山有路勤为径***************
@@ -23,108 +26,62 @@ import java.util.List;
  */
 public class PersistDemo {
 
-    static class UserService extends AbstractPersistentActor {
-        /**
-         * 状态列表
-         */
-        private List<Action> states = new ArrayList<Action>();
-
-        @Override
-        public String persistenceId() {
-            return "userservice-1";
-        }
+    static class SimpleActor extends AbstractPersistentActor {
+        private Integer count = 0;
 
         @Override
         public Receive createReceiveRecover() {
             return receiveBuilder().matchAny(msg -> {
-                if (msg instanceof Action) {
-                    Action evt = (Action) msg;
-                    System.out.println(evt);
-                    states.add(evt);
+                System.out.println(msg);
+                if (msg.equals("add")) {
+                    count++;
                 } else if (msg instanceof SnapshotOffer) {
-                    SnapshotOffer snapOffer = (SnapshotOffer) msg;
-                    states = (List<Action>) snapOffer.snapshot();
-                    System.out.println("recover: " + states);
-                } else if (msg instanceof RecoveryCompleted) {
-                    System.out.println("replay has been finished");
+                    SnapshotOffer snapshotOffer = (SnapshotOffer) msg;
+                    count = (Integer) snapshotOffer.snapshot();
                 }
-                System.out.println("onreceiveRecover:" + msg + "," + msg.getClass());
             }).build();
+        }
+
+        @Override
+        public String persistenceId() {
+            return "PersistDemo";
         }
 
         @Override
         public Receive createReceive() {
-            return receiveBuilder().matchAny(message -> {
-                if (message instanceof Action) {
-                    Action action = (Action) message;
-                    if (action.getCmd().equals("save")) {
+            return receiveBuilder().matchAny(msg -> {
+                if (msg.equals("add")) {
+                    persist(msg, new Procedure<Object>() {
+                        @Override
+                        public void apply(Object param) throws Exception {
+                            count++;
 
-                        /**
-                         * 持久化事件，异步执行
-                         */
-                        persist(action, new Procedure<Action>() {
-                            @Override
-                            public void apply(Action act) throws Exception {
-                                // 通常会在这里更新Actor的状态，或者发布事件通知订阅者
-                                states.add(act);
+                            if (count % 2 == 0) {
+                                saveSnapshot(count);
                             }
-                        });
-                    } else if (action.getCmd().equals("saveAll")) {
-                        /**
-                         * 保存快照
-                         */
-                        saveSnapshot(states);
-                    } else if (action.getCmd().equals("get")) {
-                        System.out.println("state:" + states);
-                    }
-                } else if (message instanceof SaveSnapshotSuccess) {
-                    SaveSnapshotSuccess saveSnapSucc = (SaveSnapshotSuccess) message;
-                    System.out.println("save snap success:" + saveSnapSucc.metadata());
-                } else {
-                    System.out.println("other message " + message);
+                        }
+                    });
+                } else if(msg.equals("error")) {
+                    throw new NullPointerException();
+                } else if(msg.equals("get")) {
+                    getSender().tell(count, getSelf());
                 }
             }).build();
         }
-
     }
 
-    static class Action implements Serializable {
-        private String cmd;
-        private String data;
+    public static void main(String[] args) throws Exception {
+        ActorSystem system = ActorSystem.create("sys", ConfigFactory.load("persist.conf"));
+        ActorRef ref = system.actorOf(Props.create(SimpleActor.class));
 
-        public Action(String cmd, String data) {
-            this.cmd = cmd;
-            this.data = data;
-        }
+//        ref.tell("add", ActorRef.noSender());
+//        ref.tell("add", ActorRef.noSender());
+//        ref.tell("error", ActorRef.noSender());
+//        ref.tell("add", ActorRef.noSender());
 
-        public String getCmd() {
-            return cmd;
-        }
-
-        public void setCmd(String cmd) {
-            this.cmd = cmd;
-        }
-
-        public String getData() {
-            return data;
-        }
-
-        public void setData(String data) {
-            this.data = data;
-        }
-
-        @Override
-        public String toString() {
-            return this.cmd + "--->" + this.data;
-        }
-    }
-
-    public static void main(String[] args) {
-        ActorSystem system = ActorSystem.create("sys");
-        ActorRef ref = system.actorOf(Props.create(UserService.class));
-
-//        ref.tell(new Action("save", "123"), ActorRef.noSender());
-//        ref.tell(new Action("save", "456"), ActorRef.noSender());
+        Timeout timeout = new Timeout(Duration.create(1, TimeUnit.SECONDS));
+        Future<Object> future = Patterns.ask(ref, "get", timeout);
+        System.out.println(Await.result(future, timeout.duration()));
 
 
     }
