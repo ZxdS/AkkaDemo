@@ -37,9 +37,7 @@ public class LogSystemFrontendV2 {
             boolean allowLocalRoutees = false;
             String useRole = null;
             masterRouter = getContext().actorOf(new ClusterRouterPool(new RoundRobinPool(2),
-                    new ClusterRouterPoolSettings(totalInstances,
-                            maxInstancesPerNode, allowLocalRoutees, useRole)).
-                    props(Props.create(WordCountService.class)), "poolRouter");
+                    new ClusterRouterPoolSettings(totalInstances, maxInstancesPerNode, allowLocalRoutees, useRole)).props(Props.create(WordCountService.class)), "poolRouter");
         }
 
         @Override
