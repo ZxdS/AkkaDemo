@@ -116,8 +116,11 @@ public class SupervisorDemo {
         System.out.println("发送消息");
 
         workerActor.tell("add", ActorRef.noSender());
-//        workerActor.tell(new IndexOutOfBoundsException(), ActorRef.noSender());
-        workerActor.tell(new SQLException("SQL异常"), ActorRef.noSender());
+        workerActor.tell(new IndexOutOfBoundsException(), ActorRef.noSender());
+        workerActor.tell(new IndexOutOfBoundsException(), ActorRef.noSender());
+        workerActor.tell(new IndexOutOfBoundsException(), ActorRef.noSender());
+        workerActor.tell(new IndexOutOfBoundsException(), ActorRef.noSender());
+//        workerActor.tell(new SQLException("SQL异常"), ActorRef.noSender());
 //        workerActor.tell(new IOException(), ActorRef.noSender());
 
 

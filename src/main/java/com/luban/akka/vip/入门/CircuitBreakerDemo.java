@@ -43,28 +43,26 @@ public class CircuitBreakerDemo {
         @Override
         public void preStart() throws Exception {
             super.preStart();
-            this.breaker = new CircuitBreaker(getContext().dispatcher(), getContext().system().scheduler(), 3,
-                    Duration.ofSeconds(1),
-                    Duration.ofSeconds(30))
+            this.breaker = new CircuitBreaker(getContext().dispatcher(), getContext().system().scheduler(), 3, Duration.ofSeconds(1), Duration.ofSeconds(30))
                     .onOpen(new Runnable() {
                         public void run() {
-                            System.out.println("---> Actor CircuitBreaker 开启");
+                            System.out.println("---> 熔断器开启");
                         }
                     }).onHalfOpen(new Runnable() {
                         @Override
                         public void run() {
-                            System.out.println("---> Actor CircuitBreaker 半开启");
+                            System.out.println("---> 熔断器半开启");
                         }
                     }).onClose(new Runnable() {
                         @Override
                         public void run() {
-                            System.out.println("--->Actor CircuitBreaker关闭");
+                            System.out.println("---> 熔断器关闭");
                         }
                     });
         }
 
         public void handlerMsg(String msg) {
-            if (msg.equals("sync")) {
+            if (msg.equals("error")) {
                 System.out.println("msg:" + msg);
                 try {
                     Thread.sleep(3000);
@@ -98,10 +96,11 @@ public class CircuitBreakerDemo {
         ActorRef actorRef = system.actorOf(Props.create(CircuitBreakerActor.class), "circuitBreakerDemo");
 
         for (int i = 0; i < 20; i++) {
-            if (i > 6) {
-                actorRef.tell("test", ActorRef.noSender());
+            if (i > 4) {
+                actorRef.tell("normal", ActorRef.noSender());
+            } else {
+                actorRef.tell("error", ActorRef.noSender());
             }
-            actorRef.tell("sync", ActorRef.noSender());
 
             try {
                 Thread.sleep(3000);
